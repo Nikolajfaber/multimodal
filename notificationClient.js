@@ -88,46 +88,121 @@ function startGettingNotifications(auth) {
 }
 
 
+var storedUnreadEmails = [];
+
 function getRecentEmail(auth){
-   //Authenticated gmail object
-   const gmail = google.gmail({version: 'v1', auth});
+  //Authenticated gmail object
+  const gmail = google.gmail({version: 'v1', auth});
 
-   // Only get the unread emails and at most 10
-   gmail.users.messages.list({auth: auth, userId: 'me', maxResults: 10, q: 'is:unread'}, function(err, response) {
-     if (err) {
-       console.log('The API returned an error: ' + err);
-       return;
-     }
- 
-     // Get the emails                                    
-     var unreadEmails = response['data'];         
-     console.log(unreadEmails);
-     
-     // Amount of unread emails
-     var emailsAmount = unreadEmails['resultSizeEstimate'];
-     console.log("Amount: " + emailsAmount);
- 
-     var mail1 = unreadEmails['messages'][0]['id'];
-     console.log(mail1);
- 
-     // Retreive the actual message using the message id
-     gmail.users.messages.get({auth: auth, userId: 'me', 'id': mail1}, function(err, response) {
-       if (err) {
-           console.log('The API returned an error: ' + err);
-           return;
-       }
+  // Only get the unread emails and at most 10
+  gmail.users.messages.list({auth: auth, userId: 'me', maxResults: 10, q: 'is:unread'}, function(err, response) {
+  if (err) {
+    console.log('The API returned an error: ' + err);
+    return;
+  }
 
-       //Parse the sender information
-       var senderEmail_raw = response['data']['payload']['headers'][7].value;
-       var messageParsed = senderEmail_raw.replace('<','');
-       var senderEmail = messageParsed.replace('>','');
+  // Get the emails                                    
+  var responseData = response['data'];      
+  var unreadEmailsTemp = responseData['messages'];   
+  //console.log(responseData);
 
-       console.log(senderEmail);
-     });
-   });
+  //var storedEmailCount = Object.keys(storedUnreadEmails).length;
+    
+  // Amount of unread emails
+  //var emailsAmount = responseData['resultSizeEstimate'];
+  var isNewValue = true;
+  //console.log("Amount: " + emailsAmount);
+  
+  console.log("New received emails");
+  updateNewEmails(unreadEmailsTemp, isNewValue);
+  console.log(storedUnreadEmails);
+  removeReadEmails(unreadEmailsTemp, isNewValue);
+  console.log("After removing emails");
+  console.log(storedUnreadEmails);
+
+  //
+  //storedEmailCount = Object.keys(storedUnreadEmails).length;
+
+  for(var i = 0; i < storedUnreadEmails.length; i++){
+    if(storedUnreadEmails[i].fromEmail == 'undefined'){
+      console.log("Hello mister");
+    }
+  }
+  });
+  
 }
 
+function updateNewEmails(unreadEmailsTemp, isNewValue){
+  for (var a = 0; a < unreadEmailsTemp.length; a++){
+    //Clean up the json file for the needed values
+    unreadEmailsTemp[a]['fromEmail'] = 'undefined';
+    delete  unreadEmailsTemp[a]['threadId'];
 
+    //console.log(unreadEmailsTemp[a]);
+    
+    //Compares the stored
+    for(var b = 0; b < storedUnreadEmails.length; b++){
+      //console.log(b);
+      if(unreadEmailsTemp[a]['id'] == storedUnreadEmails[b]['id'] ){
+        //console.log("Value is already stored");
+        isNewValue = false;
+        break;
+      }else{
+        isNewValue = true;
+        //console.log(isNewValue);
+      }
+    }
+
+    if(isNewValue){
+      //console.log("Storing value");
+      storedUnreadEmails.push(unreadEmailsTemp[a]);        
+    }
+  }
+}
+
+function removeReadEmails(unreadEmailsTemp, isNewValue){
+  for (var a = 0; a < storedUnreadEmails.length; a++){
+    //Compares the stored
+    for(var b = 0; b < unreadEmailsTemp.length; b++){
+      //console.log(b);
+      if(unreadEmailsTemp[b]['id'] == storedUnreadEmails[a]['id'] ){
+        //console.log("Value is already stored");
+        isNewValue = false;
+        break;
+      }else{
+        isNewValue = true;
+        //console.log(isNewValue);
+      }
+    }
+
+    if(isNewValue){
+      console.log("Deleting value" + storedUnreadEmails[a]);
+      storedUnreadEmails.splice(a,1);
+
+      //delete  storedUnreadEmails[a];
+    }
+  }
+}
+
+function getEmailInformation(){
+  var mail1 = unreadEmails['messages'][0]['id'];
+  console.log(mail1);
+
+  // Retreive the actual message using the message id
+  gmail.users.messages.get({auth: auth, userId: 'me', 'id': mail1}, function(err, response) {
+    if (err) {
+      console.log('The API returned an error: ' + err);
+      return;
+    }
+
+    //Parse the sender information
+    var senderEmail_raw = response['data']['payload']['headers'][7].value;
+    var messageParsed = senderEmail_raw.replace('<','');
+    var senderEmail = messageParsed.replace('>','');
+
+    console.log(senderEmail);
+    });
+}
 
 
 
