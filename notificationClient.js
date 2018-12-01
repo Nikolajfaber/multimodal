@@ -1,17 +1,70 @@
+//Reading files
 const fs = require('fs');
 const readline = require('readline');
-const {google} = require('googleapis');
 
+//Google api stuff
+const {google} = require('googleapis');
+const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
+const TOKEN_PATH = 'token.json';
+
+//Firebase
+var firebase = require('firebase-admin');
+var serviceAccount = require("./serviceAccountKey.json");
+
+firebase.initializeApp({
+  credential: firebase.credential.cert(serviceAccount),
+  databaseURL: "https://multimodalnotification.firebaseio.com"
+});
+var dbRef = firebase.database().ref("user");
+
+//Settings
 const notficationUpdateInterval = 2000;
 
-const importantWords = ['important', 'answer fast', 'answer quick'];
 
-// If modifying these scopes, delete token.json.
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
-// The file token.json stores the user's access and refresh tokens, and is
-// created automatically when the authorization flow completes for the first
-// time.
-const TOKEN_PATH = 'token.json';
+//Storing
+var storedUnreadEmails = [];
+var importantKeywords = ['important', 'answer fast', 'answer quick']; //standard if non is sendt from database
+var importantList = [];
+var ignoreList = [];
+var specialColor = 'undefined';
+
+
+
+getFirebaseInformation();
+
+
+function getFirebaseInformation(){
+  dbRef.once("value", function(snapshot) {
+    //NOTE! Shitty way of doing it. Check if the console.log matches. This is depended on the database setup and in which order the data is coming in.
+    var arraySnapshot = snapshotToArray(snapshot);
+    ignoreList = arraySnapshot[0];
+    importantKeywords = arraySnapshot[1];
+    importantList = arraySnapshot[2];
+    console.log("Received from firebase");
+    console.log("Ignoring list:");
+    console.log(arraySnapshot[0]);
+    console.log("");
+    console.log("Important keywords:");
+    console.log(arraySnapshot[1]);
+    console.log("");
+    console.log("Important persons:");
+    console.log(arraySnapshot[2]);
+    console.log("");
+  });
+}
+
+function snapshotToArray(snapshot) {
+  var returnArr = [];
+
+  snapshot.forEach(function(childSnapshot) {
+      var item = childSnapshot.val();
+      //item.key = childSnapshot.key;
+
+      returnArr.push(item);
+  });
+
+  return returnArr;
+};
 
 // Load client secrets from a local file.
 fs.readFile('credentials.json', (err, content) => {
@@ -89,9 +142,6 @@ function startGettingNotifications(auth) {
   let timerId = setInterval(() => getRecentEmail(auth), notficationUpdateInterval);
 }
 
-
-var storedUnreadEmails = [];
-
 function getRecentEmail(auth){
   //Authenticated gmail object
   const gmail = google.gmail({version: 'v1', auth});
@@ -132,6 +182,9 @@ function updateNewEmails(unreadEmailsTemp, isNewValue){
     //Clean up the json file for the needed values
     unreadEmailsTemp[a]['fromEmail'] = 'undefined';
     unreadEmailsTemp[a]['important'] = false;
+    unreadEmailsTemp[a]['ignoringPerson'] = false;
+    unreadEmailsTemp[a]['importantPerson'] = false;
+    unreadEmailsTemp[a]['specialColor'] = 'undefined';
     delete  unreadEmailsTemp[a]['threadId'];
 
     //Compares the stored
@@ -221,6 +274,21 @@ function updateEmailInformation(valueNumber, auth){
   //Add the sender to the list
   storedUnreadEmails[valueNumber].fromEmail = fromEmail;
 
+  //Handles the incoming mails
+  if(isPersonOnIgnoreList(fromEmail)){ //Checks if the person who sent the mail is on the ignoringlist
+    storedUnreadEmails[valueNumber]['ignoringPerson'] = true;
+    //Do nothing
+
+  }else if(isPersonOnImportantList(fromEmail)){//Checks if the person who sent the mail is on the importantlist
+    storedUnreadEmails[valueNumber]['importantPerson'] = true;
+    storedUnreadEmails[valueNumber]['specialColor'] = specialColor;
+    //Do something special for the important person
+
+  }else{
+    //Do something to the transducer and light if a mail was received
+
+  }
+
   console.log("A new unread email was added: ");
   console.log(storedUnreadEmails[valueNumber]);
   console.log("Total number unread is : " + storedUnreadEmails.length);
@@ -229,13 +297,36 @@ function updateEmailInformation(valueNumber, auth){
 
 function isMailImportant(text){
   var isImportant = false;
-  for (var i = 0; i < importantWords.length; i++){
-    isImportant = text.toLowerCase().includes(importantWords[i]);
+  for (var i = 0; i < importantKeywords.length; i++){
+    isImportant = text.toLowerCase().includes(importantKeywords[i]);
     if(isImportant){break;}
   }
   return isImportant;
 }
 
+function isPersonOnIgnoreList(fromEmail){
+  isOnList = false;
+  for (var i = 0; i < ignoreList.length; i++){
+    if(ignoreList[i].toLowerCase() == fromEmail.toLowerCase()){
+      console.log("Email was ignored");
+      isOnList = true;
+    }
+  }
+  return isOnList;
+}
+
+function isPersonOnImportantList(fromEmail){
+  isOnList = false;
+  for (var i = 0; i < importantList.length; i++){
+    if(importantList[i]['email'].toLowerCase() == fromEmail.toLowerCase()){
+      console.log("Important person mailed");
+      specialColor = importantList[i]['color'];
+      isOnList = true;
+    }
+  }
+  return isOnList;
+
+}
 
 
 
