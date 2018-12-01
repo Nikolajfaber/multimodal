@@ -2,7 +2,9 @@ const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
 
-const notficationUpdateInterval = 5000;
+const notficationUpdateInterval = 2000;
+
+const importantWords = ['important', 'answer fast', 'answer quick'];
 
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
@@ -95,54 +97,45 @@ function getRecentEmail(auth){
   const gmail = google.gmail({version: 'v1', auth});
 
   // Only get the unread emails and at most 10
-  gmail.users.messages.list({auth: auth, userId: 'me', maxResults: 10, q: 'is:unread'}, function(err, response) {
-  if (err) {
+  gmail.users.messages.list({auth: auth, userId: 'me', maxResults: 15, q: 'is:unread'}, function(err, response) {
+    if (err) {
     console.log('The API returned an error: ' + err);
     return;
-  }
-
-  // Get the emails                                    
-  var responseData = response['data'];      
-  var unreadEmailsTemp = responseData['messages'];   
-  //console.log(responseData);
-
-  //var storedEmailCount = Object.keys(storedUnreadEmails).length;
-    
-  // Amount of unread emails
-  //var emailsAmount = responseData['resultSizeEstimate'];
-  var isNewValue = true;
-  //console.log("Amount: " + emailsAmount);
-  
-  console.log("New received emails");
-  updateNewEmails(unreadEmailsTemp, isNewValue);
-  console.log(storedUnreadEmails);
-  removeReadEmails(unreadEmailsTemp, isNewValue);
-  console.log("After removing emails");
-  console.log(storedUnreadEmails);
-
-  //
-  //storedEmailCount = Object.keys(storedUnreadEmails).length;
-
-  for(var i = 0; i < storedUnreadEmails.length; i++){
-    if(storedUnreadEmails[i].fromEmail == 'undefined'){
-      console.log("Hello mister");
     }
-  }
+    //console.log("getList was called. It costs 1 quota units.");
+
+    // Get the emails                                    
+    var responseData = response['data'];      
+    var unreadEmailsTemp = responseData['messages'];   
+    var isNewValue = true;
+
+    //Avoid undefined object when there are no unread mails.
+    if(unreadEmailsTemp != undefined){
+      //console.log("New received emails");
+      updateNewEmails(unreadEmailsTemp, isNewValue);
+      //console.log(storedUnreadEmails);
+      removeReadEmails(unreadEmailsTemp, isNewValue);
+      //console.log("After removing emails");
+      //console.log(storedUnreadEmails);
+
+      for(var i = 0; i < storedUnreadEmails.length; i++){
+        if(storedUnreadEmails[i].fromEmail == 'undefined'){
+          updateEmailInformation(i, auth);
+        }
+      }
+    }
   });
-  
 }
 
 function updateNewEmails(unreadEmailsTemp, isNewValue){
   for (var a = 0; a < unreadEmailsTemp.length; a++){
     //Clean up the json file for the needed values
     unreadEmailsTemp[a]['fromEmail'] = 'undefined';
+    unreadEmailsTemp[a]['important'] = false;
     delete  unreadEmailsTemp[a]['threadId'];
 
-    //console.log(unreadEmailsTemp[a]);
-    
     //Compares the stored
     for(var b = 0; b < storedUnreadEmails.length; b++){
-      //console.log(b);
       if(unreadEmailsTemp[a]['id'] == storedUnreadEmails[b]['id'] ){
         //console.log("Value is already stored");
         isNewValue = false;
@@ -152,9 +145,9 @@ function updateNewEmails(unreadEmailsTemp, isNewValue){
         //console.log(isNewValue);
       }
     }
-
+    
+    //Adds new values to the list if they do not allready exist
     if(isNewValue){
-      //console.log("Storing value");
       storedUnreadEmails.push(unreadEmailsTemp[a]);        
     }
   }
@@ -174,62 +167,74 @@ function removeReadEmails(unreadEmailsTemp, isNewValue){
         //console.log(isNewValue);
       }
     }
-
+    
+    //Removes values from list if they are no longer being sent
     if(isNewValue){
-      console.log("Deleting value" + storedUnreadEmails[a]);
+      console.log("An email has been read and removed: ");
+      console.log(storedUnreadEmails[a]);
       storedUnreadEmails.splice(a,1);
-
-      //delete  storedUnreadEmails[a];
+      console.log("Total number of unread mail is : " + storedUnreadEmails.length);
     }
   }
 }
 
-function getEmailInformation(){
-  var mail1 = unreadEmails['messages'][0]['id'];
-  console.log(mail1);
+function updateEmailInformation(valueNumber, auth){
+  var fromEmail = "undefined";
+  var msgInformation = storedUnreadEmails[valueNumber]['id'];
+  const gmail = google.gmail({version: 'v1', auth});
+  
+  console.log("updateEmailInformation was called. It costs 5 quota units.");
 
   // Retreive the actual message using the message id
-  gmail.users.messages.get({auth: auth, userId: 'me', 'id': mail1}, function(err, response) {
-    if (err) {
-      console.log('The API returned an error: ' + err);
-      return;
-    }
+  gmail.users.messages.get({auth: auth, userId: 'me', 'id': msgInformation}, function(err, response) {
+  if (err) {
+    console.log('The API returned an error: ' + err);
+    return;
+  }
+  //Parse the email message information
+  var subject = response['data']['payload']['headers'][17].value; // Subject
+  //console.log("Subject: " + subject);
+  
+  //Check to see if the subject is important
+  var isImportant = isMailImportant(subject);
+  //console.log(isImportant);
 
-    //Parse the sender information
-    var senderEmail_raw = response['data']['payload']['headers'][7].value;
-    var messageParsed = senderEmail_raw.replace('<','');
-    var senderEmail = messageParsed.replace('>','');
+  //Check to see if the mail content is important if the subject is not
+  if(!isImportant){
+    // Get maildata
+    var message_raw = response['data']['payload']['parts'][0].body.data; // Mail body 
+    var buffer = new Buffer.from(message_raw, 'base64');  
+    var mailBody = buffer.toString();
+    //console.log("Mail: " + mailBody);
+    //console.log("Check to see if the content is important");
+    isImportant = isMailImportant(mailBody);
+  }
 
-    console.log(senderEmail);
-    });
-}
+  //Add the importance to the list 
+  storedUnreadEmails[valueNumber].important = isImportant;
 
+  //Parse the email sender information
+  var senderEmail_raw = response['data']['payload']['headers'][7].value;
+  var messageParsed = senderEmail_raw.replace('<','');
+  fromEmail = messageParsed.replace('>','');
 
+  //Add the sender to the list
+  storedUnreadEmails[valueNumber].fromEmail = fromEmail;
 
-/**
- * Lists the labels in the user's account.
- *
- * param {google.auth.OAuth2} auth An authorized OAuth2 client.
- */
-/*
-function listLabels(auth) {
-  const gmail = google.gmail({version: 'v1', auth});
-  gmail.users.labels.list({
-    userId: 'me',
-  }, (err, res) => {
-    if (err) return console.log('The API returned an error: ' + err);
-    const labels = res.data.labels;
-    if (labels.length) {
-      console.log('Labels:');
-      labels.forEach((label) => {
-        console.log(`- ${label.name}`);
-      });
-    } else {
-      console.log('No labels found.');
-    }
+  console.log("A new unread email was added: ");
+  console.log(storedUnreadEmails[valueNumber]);
+  console.log("Total number unread is : " + storedUnreadEmails.length);
   });
 }
-*/
+
+function isMailImportant(text){
+  var isImportant = false;
+  for (var i = 0; i < importantWords.length; i++){
+    isImportant = text.toLowerCase().includes(importantWords[i]);
+    if(isImportant){break;}
+  }
+  return isImportant;
+}
 
 
 
