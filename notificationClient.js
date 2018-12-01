@@ -2,6 +2,8 @@ const fs = require('fs');
 const readline = require('readline');
 const {google} = require('googleapis');
 
+const notficationUpdateInterval = 5000;
+
 // If modifying these scopes, delete token.json.
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 // The file token.json stores the user's access and refresh tokens, and is
@@ -14,7 +16,7 @@ fs.readFile('credentials.json', (err, content) => {
   if (err) return console.log('Error loading client secret file:', err);
   // Authorize a client with credentials, then call the Gmail API.
   //authorize(JSON.parse(content), listLabels);
-  authorize(JSON.parse(content), getRecentEmail);
+  authorize(JSON.parse(content), startGettingNotifications);
 });
 
 /**
@@ -72,11 +74,69 @@ function getNewToken(oAuth2Client, callback) {
   });
 }
 
+//Calls per second 190    -> 190*60sek*60min*60hour*24day = 984960000 -> maximum: 1,000,000,000
 /**
- * Lists the labels in the user's account.
+ * Get the recent email from your Gmail account
  *
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
+
+
+function startGettingNotifications(auth) {
+  //Timer
+  let timerId = setInterval(() => getRecentEmail(auth), notficationUpdateInterval);
+}
+
+
+function getRecentEmail(auth){
+   //Authenticated gmail object
+   const gmail = google.gmail({version: 'v1', auth});
+
+   // Only get the unread emails and at most 10
+   gmail.users.messages.list({auth: auth, userId: 'me', maxResults: 10, q: 'is:unread'}, function(err, response) {
+     if (err) {
+       console.log('The API returned an error: ' + err);
+       return;
+     }
+ 
+     // Get the emails                                    
+     var unreadEmails = response['data'];         
+     console.log(unreadEmails);
+     
+     // Amount of unread emails
+     var emailsAmount = unreadEmails['resultSizeEstimate'];
+     console.log("Amount: " + emailsAmount);
+ 
+     var mail1 = unreadEmails['messages'][0]['id'];
+     console.log(mail1);
+ 
+     // Retreive the actual message using the message id
+     gmail.users.messages.get({auth: auth, userId: 'me', 'id': mail1}, function(err, response) {
+       if (err) {
+           console.log('The API returned an error: ' + err);
+           return;
+       }
+
+       //Parse the sender information
+       var senderEmail_raw = response['data']['payload']['headers'][7].value;
+       var messageParsed = senderEmail_raw.replace('<','');
+       var senderEmail = messageParsed.replace('>','');
+
+       console.log(senderEmail);
+     });
+   });
+}
+
+
+
+
+
+/**
+ * Lists the labels in the user's account.
+ *
+ * param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ */
+/*
 function listLabels(auth) {
   const gmail = google.gmail({version: 'v1', auth});
   gmail.users.labels.list({
@@ -94,57 +154,11 @@ function listLabels(auth) {
     }
   });
 }
-
-/*
-async function main(auth) {
-  const gmail = google.gmail({version: 'v1', auth});
-  console.log("Main function was called");
-  const res = await gmail.users.watch({
-    userId: 'me',
-    requestBody: {
-      // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
-      topicName: `projects/teamgnumultimodal/topics/mail`
-    }
-  });
-  console.log("Data received:");
-  console.log(res.data);
-}
 */
 
-/**
- * Get the recent email from your Gmail account
- *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
- */
-function getRecentEmail(auth) {
-  //Authenticated gmail object
-  const gmail = google.gmail({version: 'v1', auth});
 
-  // Only get the recent email - 'maxResults' parameter
-  gmail.users.messages.list({auth: auth, userId: 'me', maxResults: 10, q: 'is:unread'}, function(err, response) {
-    if (err) {
-      console.log('The API returned an error: ' + err);
-      return;
-    }
 
-    // Get the message id which we will need to retreive tha actual message next.
-    //var message_id = response['data']['messages'][0]['id'];
-    var message_id = response['data']['messages'];
-    var message_id = response['data']['resultSizeEstimate'];
-    console.log(message_id);
-    
-    /*
-    // Retreive the actual message using the message id
-    gmail.users.messages.get({auth: auth, userId: 'me', 'id': message_id}, function(err, response) {
-      if (err) {
-          console.log('The API returned an error: ' + err);
-          return;
-      }
-      console.log("Labels");
-      console.log(response['data']['labelIds']);
-      console.log("Full dataset");
-      console.log(response['data']);
-    });
-    */
-  });
-}
+
+
+
+
