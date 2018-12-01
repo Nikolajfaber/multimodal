@@ -1,0 +1,17 @@
+{
+  "name": "multimodal",
+  "version": "1.0.0",
+  "description": "Multimodal project",
+  "main": "notificationServer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google-cloud/pubsub": "^0.22.0",
+    "fs": "0.0.1-security",
+    "googleapis": "^35.0.0",
+    "readline": "^1.3.0"
+  }
+}
