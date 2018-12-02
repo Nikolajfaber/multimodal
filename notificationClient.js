@@ -289,18 +289,6 @@ function updateEmailInformation(valueNumber, auth){
     storedUnreadEmails[valueNumber]['ignoringPerson'] = true;
     //Do nothing
 
-  }else if(isImportant){
-    if(!isPlaying){
-      isPlaying = true;
-      var body = {
-        lightMode: 'rainBow',
-        lightColor: 'white'
-      }
-      changeLight(body);
-      automaticPlayer = setInterval(() => playRythm(), interval);
-      setTimeout(stopAutomaticPlayer, 2500);
-    }
-
   }else if(isPersonOnImportantList(fromEmail)){//Checks if the person who sent the mail is on the importantlist
     storedUnreadEmails[valueNumber]['importantPerson'] = true;
     storedUnreadEmails[valueNumber]['specialColor'] = specialColor;
@@ -310,6 +298,17 @@ function updateEmailInformation(valueNumber, auth){
       var body = {
         lightMode: 'importantPerson',
         lightColor: specialColor
+      }
+      changeLight(body);
+      automaticPlayer = setInterval(() => playRythm(), interval);
+      setTimeout(stopAutomaticPlayer, 2500);
+    }
+  }else if(isImportant){
+    if(!isPlaying){
+      isPlaying = true;
+      var body = {
+        lightMode: 'rainBow',
+        lightColor: 'white'
       }
       changeLight(body);
       automaticPlayer = setInterval(() => playRythm(), interval);
