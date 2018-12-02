@@ -17,6 +17,10 @@ firebase.initializeApp({
 });
 var dbRef = firebase.database().ref("user");
 
+//Requests
+var axios = require('axios');
+var espIp = '192.168.137.174';
+
 //Settings
 const notficationUpdateInterval = 2000;
 
@@ -27,6 +31,12 @@ var importantKeywords = ['important', 'answer fast', 'answer quick']; //standard
 var importantList = [];
 var ignoreList = [];
 var specialColor = 'undefined';
+
+//Transducer
+var player = require('play-sound')(opts = {})
+var interval = 1000;
+var isPlaying = false;
+var automaticPlayer;
 
 
 
@@ -279,14 +289,45 @@ function updateEmailInformation(valueNumber, auth){
     storedUnreadEmails[valueNumber]['ignoringPerson'] = true;
     //Do nothing
 
+  }else if(isImportant){
+    if(!isPlaying){
+      isPlaying = true;
+      var body = {
+        lightMode: 'rainBow',
+        lightColor: 'white'
+      }
+      changeLight(body);
+      automaticPlayer = setInterval(() => playRythm(), interval);
+      setTimeout(stopAutomaticPlayer, 2500);
+    }
+
   }else if(isPersonOnImportantList(fromEmail)){//Checks if the person who sent the mail is on the importantlist
     storedUnreadEmails[valueNumber]['importantPerson'] = true;
     storedUnreadEmails[valueNumber]['specialColor'] = specialColor;
     //Do something special for the important person
+    if(!isPlaying){
+      isPlaying = true;
+      var body = {
+        lightMode: 'importantPerson',
+        lightColor: specialColor
+      }
+      changeLight(body);
+      automaticPlayer = setInterval(() => playRythm(), interval);
+      setTimeout(stopAutomaticPlayer, 2500);
+    }
 
   }else{
     //Do something to the transducer and light if a mail was received
-
+    if(!isPlaying){
+      isPlaying = true;
+      var body = {
+        lightMode: 'whiteBlink',
+        lightColor: 'white'
+      }
+      changeLight(body);
+      automaticPlayer = setInterval(() => playRythm(), interval);
+      setTimeout(stopAutomaticPlayer, 2500);
+    }
   }
 
   console.log("A new unread email was added: ");
@@ -325,11 +366,37 @@ function isPersonOnImportantList(fromEmail){
     }
   }
   return isOnList;
-
 }
 
 
 
+
+//-----------------------------
+function playRythm(){
+  isPlaying = true;
+  player.play('sine.wav', function(err){
+      if (err) throw err
+    })
+}
+
+function stopAutomaticPlayer(){
+  clearInterval(automaticPlayer);
+  isPlaying = false;
+}
+
+
+//--------------------------
+
+
+function changeLight(body){
+  axios.post('http://' + espIp + '/changeLight', body)
+  .then(function(response){
+      console.log("Something happend");
+      //updateProperty("LED" + actuatorName, response.data.value);
+  }).catch(function(error){
+      console.log(error);
+  });
+}
 
 
 
