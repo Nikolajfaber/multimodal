@@ -300,8 +300,8 @@ function updateEmailInformation(valueNumber, auth){
         lightColor: specialColor
       }
       changeLight(body);
-      automaticPlayer = setInterval(() => playRythm(), interval);
-      setTimeout(stopAutomaticPlayer, 2500);
+      automaticPlayer = setInterval(() => playRythm("urgent_sine.wav"), interval);
+      setTimeout(stopAutomaticPlayer, 4000);
     }
   }else if(isImportant){
     if(!isPlaying){
@@ -311,8 +311,8 @@ function updateEmailInformation(valueNumber, auth){
         lightColor: 'white'
       }
       changeLight(body);
-      automaticPlayer = setInterval(() => playRythm(), interval);
-      setTimeout(stopAutomaticPlayer, 2500);
+      automaticPlayer = setInterval(() => playRythm("urgent_sine.wav"), interval);
+      setTimeout(stopAutomaticPlayer, 4000);
     }
 
   }else{
@@ -324,7 +324,7 @@ function updateEmailInformation(valueNumber, auth){
         lightColor: 'white'
       }
       changeLight(body);
-      automaticPlayer = setInterval(() => playRythm(), interval);
+      automaticPlayer = setInterval(() => playRythm("sine.wav"), interval);
       setTimeout(stopAutomaticPlayer, 2500);
     }
   }
@@ -371,9 +371,9 @@ function isPersonOnImportantList(fromEmail){
 
 
 //-----------------------------
-function playRythm(){
+function playRythm(soundFile){
   isPlaying = true;
-  player.play('sine.wav', function(err){
+  player.play(soundFile, function(err){
       if (err) throw err
     })
 }

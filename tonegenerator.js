@@ -2,11 +2,11 @@ var tone = require('tonegenerator')
 var header = require('waveheader');
 var fs = require('fs');
 
-var file = fs.createWriteStream('sine.wav')
+var file = fs.createWriteStream('urgent_sine.wav')
 
 var samples = tone({
     freq: 150,
-    lengthInSecs: 0.75,
+    lengthInSecs: 1.5,
     volume: tone.MAX_16,
     rate: 44100,
     shape: 'sine'
